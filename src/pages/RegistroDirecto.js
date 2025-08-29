@@ -1,110 +1,83 @@
-// src/pages/RegistroDirecto.js
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 function RegistroDirecto() {
-  const [nombre, setNombre] = useState('');
-  const [cedula, setCedula] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [correo, setCorreo] = useState('');
-  const [habitacion, setHabitacion] = useState('');
-  const [pago, setPago] = useState('');
-  const [comprobante, setComprobante] = useState('');
-  const [habitacionesDisponibles, setHabitacionesDisponibles] = useState([]);
+  const [habitaciones, setHabitaciones] = useState([]);
+  const [formulario, setFormulario] = useState({
+    id_habitacion: '',
+    nombre_cliente: '',
+    cedula: '',
+    telefono: '',
+    correo: '',
+    cantidad_personas: 1,
+  });
   const [mensaje, setMensaje] = useState('');
 
-  // Cargar habitaciones que no están en mantenimiento
   useEffect(() => {
-    const habitacionesGuardadas = JSON.parse(localStorage.getItem('habitaciones')) || [
-      { id: 1, nombre: 'Habitación Estándar', precio: 50000, enMantenimiento: false },
-      { id: 2, nombre: 'Habitación Deluxe', precio: 80000, enMantenimiento: false },
-      { id: 3, nombre: 'Suite Familiar', precio: 120000, enMantenimiento: false }
-    ];
-    const disponibles = habitacionesGuardadas.filter(h => !h.enMantenimiento);
-    setHabitacionesDisponibles(disponibles);
+    fetch('http://localhost:3000/habitaciones', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        // Mostrar solo habitaciones disponibles
+        const disponibles = data.filter(h => h.estado === 'disponible');
+        setHabitaciones(disponibles);
+      })
+      .catch(err => console.error('Error al obtener habitaciones:', err));
   }, []);
 
-  const registrar = () => {
-    if (!nombre || !cedula || !telefono || !correo || !habitacion || !pago || !comprobante) {
-      setMensaje('Todos los campos son obligatorios.');
-      return;
+  const handleChange = (e) => {
+    setFormulario({ ...formulario, [e.target.name]: e.target.value });
+  };
+
+  const manejarRegistro = async () => {
+    const hoy = new Date().toISOString().split('T')[0];
+    const manana = new Date(Date.now() + 86400000).toISOString().split('T')[0]; // +1 día
+
+    try {
+      const res = await fetch('http://localhost:3000/registro-directo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...formulario,
+          fecha_entrada: hoy,
+          fecha_salida: manana,
+          deposito: 0,
+          comentario: 'Registro directo'
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setMensaje(`✅ Registro directo exitoso. Reserva ID: ${data.id_reserva}`);
+      } else {
+        setMensaje(`❌ Error: ${data.error}`);
+      }
+    } catch (err) {
+      console.error('Error al registrar directo:', err);
+      setMensaje('❌ Error de conexión al servidor');
     }
-
-    const reservas = JSON.parse(localStorage.getItem('reservas')) || [];
-    reservas.push({
-      nombre,
-      cedula,
-      telefono,
-      correo,
-      habitacion,
-      pago,
-      comprobante,
-      checkinCompleto: true,
-      checkoutCompleto: false
-    });
-
-    localStorage.setItem('reservas', JSON.stringify(reservas));
-    setMensaje('Registro directo completado con éxito.');
-    setNombre('');
-    setCedula('');
-    setTelefono('');
-    setCorreo('');
-    setHabitacion('');
-    setPago('');
-    setComprobante('');
   };
 
   return (
-    <div>
-      <h2>Registro Directo</h2>
+    <div style={{ padding: '30px' }}>
+      <h2>Registro Directo de Cliente</h2>
       {mensaje && <p>{mensaje}</p>}
-      <input
-        type="text"
-        placeholder="Nombre completo"
-        value={nombre}
-        onChange={(e) => setNombre(e.target.value)}
-      /><br />
-      <input
-        type="text"
-        placeholder="Cédula"
-        value={cedula}
-        onChange={(e) => setCedula(e.target.value)}
-      /><br />
-      <input
-        type="text"
-        placeholder="Teléfono"
-        value={telefono}
-        onChange={(e) => setTelefono(e.target.value)}
-      /><br />
-      <input
-        type="email"
-        placeholder="Correo"
-        value={correo}
-        onChange={(e) => setCorreo(e.target.value)}
-      /><br />
-      <select
-        value={habitacion}
-        onChange={(e) => setHabitacion(e.target.value)}
-      >
-        <option value="">Seleccionar habitación</option>
-        {habitacionesDisponibles.map((h) => (
-          <option key={h.id} value={h.nombre}>
-            {h.nombre} - ₡{h.precio}
+
+      <select name="id_habitacion" value={formulario.id_habitacion} onChange={handleChange}>
+        <option value="">Seleccione una habitación disponible</option>
+        {habitaciones.map(h => (
+          <option key={h.id_habitacion} value={h.id_habitacion}>
+            {h.nombre} - Estado: {h.estado}
           </option>
         ))}
-      </select><br />
-      <input
-        type="number"
-        placeholder="Monto pagado (100%)"
-        value={pago}
-        onChange={(e) => setPago(e.target.value)}
-      /><br />
-      <input
-        type="text"
-        placeholder="Número de comprobante"
-        value={comprobante}
-        onChange={(e) => setComprobante(e.target.value)}
-      /><br />
-      <button onClick={registrar}>Registrar</button>
+      </select>
+
+      <input name="nombre_cliente" placeholder="Nombre del cliente" onChange={handleChange} />
+      <input name="cedula" placeholder="Cédula" onChange={handleChange} />
+      <input name="telefono" placeholder="Teléfono" onChange={handleChange} />
+      <input name="correo" placeholder="Correo" onChange={handleChange} />
+      <input type="number" name="cantidad_personas" placeholder="Cantidad de personas" onChange={handleChange} />
+
+      <button onClick={manejarRegistro}>Registrar y hacer Check-in</button>
     </div>
   );
 }

@@ -1,10 +1,18 @@
 import React from 'react';
 import './Panel.css';
+import AdminPrecios from './AdminPrecios';
+import HistorialPrecios from './HistorialPrecios';
+
+
+
 
 function Panel({ usuario }) {
   return (
     <div className="panel-container">
       <h2>Panel de control</h2>
+      <AdminPrecios />
+      <HistorialPrecios />
+
       {usuario ? (
         <>
           <p>Has iniciado sesión como: <strong>{usuario}</strong></p>
